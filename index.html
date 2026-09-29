@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Balls On The Gym Pipes</title>
+<meta name="description" content="Throw balls to knock down the ones stuck on the gym pipes, without getting more stuck.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@600;700;800&display=swap">
+<style>
+  /* base rules the Claude artifact viewer normally supplies */
+  :root{color-scheme:light}
+  img{max-width:100%}
+  [hidden]:not([hidden=until-found i]){display:none!important}
+
+  :root {
+    --bg: #eef0e6;
+    --ink: #22261e;
+    --muted: #5f6656;
+    --panel: #ffffff;
+    --panel-line: #d9dccc;
+    --accent: #d84f2a;
+    --accent-ink: #ffffff;
+    --good: #2e8b57;
+    --bad: #c0392b;
+    --shadow: 0 10px 26px rgba(40, 40, 20, .16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1c15;
+      --ink: #eef0e6;
+      --muted: #a3a996;
+      --panel: #24271e;
+      --panel-line: #3a3e31;
+      --accent: #ff7a52;
+      --accent-ink: #1a1c15;
+      --good: #5fcf8a;
+      --bad: #ff7b6b;
+      --shadow: 0 10px 26px rgba(0, 0, 0, .5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1c15;
+    --ink: #eef0e6;
+    --muted: #a3a996;
+    --panel: #24271e;
+    --panel-line: #3a3e31;
+    --accent: #ff7a52;
+    --accent-ink: #1a1c15;
+    --good: #5fcf8a;
+    --bad: #ff7b6b;
+    --shadow: 0 10px 26px rgba(0, 0, 0, .5);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Nunito", system-ui, sans-serif;
+    font-weight: 600;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 20px 14px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .wrap { width: 100%; max-width: 820px; display: flex; flex-direction: column; gap: 14px; }
+  h1 { margin: 0; font-family: "Bangers", "Nunito", sans-serif; font-weight: 400; font-size: 40px; letter-spacing: .03em; line-height: 1; text-wrap: balance; }
+  .sub { margin: 0; color: var(--muted); font-size: 15px; }
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 800 / 520;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    background: #cfd8c4;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .overlay {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(20, 24, 16, .55);
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .card {
+    background: var(--panel);
+    border: 2px solid var(--panel-line);
+    border-radius: 14px;
+    padding: 20px 24px;
+    max-width: 420px;
+    text-align: center;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .card h2 { margin: 0; font-family: "Bangers", sans-serif; font-weight: 400; font-size: 34px; letter-spacing: .03em; }
+  .card p { margin: 0; font-size: 15px; line-height: 1.45; }
+  .card .nums { display: flex; justify-content: center; gap: 18px; font-variant-numeric: tabular-nums; }
+  .card .nums div { display: flex; flex-direction: column; }
+  .card .nums b { font-family: "Bangers", sans-serif; font-weight: 400; font-size: 34px; line-height: 1; }
+  .card .nums span { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .rescued b { color: var(--good); } .stuck b { color: var(--bad); }
+  button {
+    font: inherit; font-weight: 800; font-size: 15px;
+    padding: 12px 18px; border-radius: 10px; border: 0;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .howto { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
+  .howto b { color: var(--ink); }
+  .best { font-size: 13px; color: var(--muted); }
+  .best b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Balls On The Gym Pipes</h1>
+  <p class="sub">The PE teacher gave you 10 balls. Knock down the ones stuck on the pipes. Don't add to the pile.</p>
+
+  <div class="stage" id="stage">
+    <canvas id="c" width="800" height="520"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="card">
+        <h2 id="endTitle">Lunch is over</h2>
+        <div class="nums">
+          <div class="rescued"><b id="endRescued">0</b><span>rescued</span></div>
+          <div class="stuck"><b id="endStuck">0</b><span>you got stuck</span></div>
+          <div><b id="endLeft">0</b><span>still up there</span></div>
+        </div>
+        <p id="endText"></p>
+        <button id="again">Play again</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="howto">
+    <b>How to play:</b> move the mouse to aim. <b>Hold</b> the mouse button to charge a throw, <b>let go</b> to throw.
+    Hit a stuck ball to knock it down. A ball that lands softly on a pipe gets <b>stuck</b>, and that's one more for the theory.
+    Rolling balls fall off the ends of pipes.
+  </p>
+  <div class="best" id="best"></div>
+</div>
+
+<script>
+(() => {
+  const W = 800, H = 520, FLOOR = 470, GRAVITY = 0.32;
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const overlay = document.getElementById('overlay');
+
+  const TYPES = [
+    { name: 'football', r: 15, color: '#f4f4f0', mark: '#222' },
+    { name: 'basketball', r: 16, color: '#e6772e', mark: '#3a2010' },
+    { name: 'tennis ball', r: 10, color: '#d7e83a', mark: '#f8fbe0' },
+    { name: 'dodgeball', r: 14, color: '#d1352b', mark: '#ff8a80' },
+    { name: 'sponge ball', r: 12, color: '#6db8e8', mark: '#e0f3ff' },
+  ];
+  // Pipes run along the top of the hall, like the heating pipes in a real gym.
+  const PIPES = [
+    { x: 40,  y: 70,  w: 330, h: 14 },
+    { x: 430, y: 70,  w: 330, h: 14 },
+    { x: 120, y: 135, w: 260, h: 14 },
+    { x: 460, y: 150, w: 220, h: 14 },
+    { x: 20,  y: 210, w: 180, h: 14 },
+    { x: 560, y: 225, w: 220, h: 14 },
+  ];
+  const THROWS = 10;
+
+  let balls, throwsLeft, rescued, stuckByYou, startStuck, aim, charging, power, thrower, over;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  function makeBall(type, x, y) {
+    return { ...type, type: type.name, x, y, vx: 0, vy: 0, onPipe: null, thrown: false, spin: rand(0, 6.28), rot: 0 };
+  }
+
+  function reset() {
+    balls = [];
+    // Start with a pile of long-lost balls resting on the pipes.
+    for (const pipe of PIPES) {
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const t = pick(TYPES);
+        // Try a few spots so the starting balls don't sit inside each other.
+        for (let tries = 0; tries < 12; tries++) {
+          const x = rand(pipe.x + t.r + 4, pipe.x + pipe.w - t.r - 4);
+          if (balls.some(o => o.onPipe === pipe && Math.abs(o.x - x) < o.r + t.r + 2)) continue;
+          const b = makeBall(t, x, pipe.y - t.r);
+          b.onPipe = pipe;
+          balls.push(b);
+          break;
+        }
+      }
+    }
+    startStuck = balls.length;
+    throwsLeft = THROWS; rescued = 0; stuckByYou = 0; over = false;
+    thrower = { x: 400, y: FLOOR };
+    aim = { x: 400, y: 200 };
+    charging = false; power = 0;
+    overlay.classList.remove('show');
+    showBest();
+  }
+
+  // ---------- physics ----------
+  function step() {
+    for (const b of balls) {
+      if (b.onPipe) {
+        // Rolling along a pipe, slowing down, falling off the ends.
+        b.x += b.vx; b.vx *= 0.97; b.rot += b.vx / b.r;
+        if (Math.abs(b.vx) < 0.05) b.vx = 0;
+        if (b.x < b.onPipe.x || b.x > b.onPipe.x + b.onPipe.w) { b.onPipe = null; b.vy = 0; }
+        continue;
+      }
+      b.vy += GRAVITY;
+      b.x += b.vx; b.y += b.vy; b.rot += b.vx / b.r;
+
+      // Walls and ceiling.
+      if (b.x - b.r < 0) { b.x = b.r; b.vx = -b.vx * 0.6; }
+      if (b.x + b.r > W) { b.x = W - b.r; b.vx = -b.vx * 0.6; }
+      if (b.y - b.r < 0) { b.y = b.r; b.vy = -b.vy * 0.5; }
+
+      // Pipes.
+      for (const p of PIPES) {
+        const nx = Math.max(p.x, Math.min(b.x, p.x + p.w));
+        const ny = Math.max(p.y, Math.min(b.y, p.y + p.h));
+        const dx = b.x - nx, dy = b.y - ny;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= b.r * b.r) continue;
+        const d = Math.sqrt(d2) || 0.001;
+        const pen = b.r - d;
+        const ux = dx / d, uy = dy / d;
+        b.x += ux * pen; b.y += uy * pen;
+        const vn = b.vx * ux + b.vy * uy;
+        if (vn < 0) {
+          // Landing on top: settle if it's slow, bounce if it's fast.
+          if (uy < -0.7 && -vn < 2.6) {
+            b.onPipe = p; b.vy = 0; b.y = p.y - b.r;
+            b.vx *= 0.6;
+            if (b.thrown) { b.thrown = false; stuckByYou++; }
+          } else {
+            b.vx -= (1 + 0.45) * vn * ux;
+            b.vy -= (1 + 0.45) * vn * uy;
+          }
+        }
+      }
+
+      // Floor.
+      if (b.y + b.r > FLOOR) {
+        b.y = FLOOR - b.r;
+        if (!b.thrown && !b.landed) { rescued++; b.landed = true; }
+        b.vy = -b.vy * 0.45; b.vx *= 0.9;
+        if (Math.abs(b.vy) < 0.8) { b.vy = 0; b.resting = true; }
+        if (b.thrown && b.resting) b.dead = true;
+      }
+      // Rolled off the edge of the world after landing: tidy it away.
+      if (b.landed && b.resting && Math.abs(b.vx) < 0.05) b.dead = true;
+    }
+
+    // Ball on ball.
+    for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {
+      const a = balls[i], b = balls[j];
+      const dx = b.x - a.x, dy = b.y - a.y, rr = a.r + b.r;
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= rr * rr || d2 === 0) continue;
+      const d = Math.sqrt(d2), ux = dx / d, uy = dy / d, pen = rr - d;
+      // Anything hit while resting on a pipe wakes up.
+      const aMoving = !a.onPipe || Math.abs(a.vx) > 0, bMoving = !b.onPipe || Math.abs(b.vx) > 0;
+      if (!aMoving && !bMoving) continue;
+      a.x -= ux * pen / 2; a.y -= uy * pen / 2;
+      b.x += ux * pen / 2; b.y += uy * pen / 2;
+      const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+      const vn = rvx * ux + rvy * uy;
+      if (vn > 0) continue;
+      const jimp = -(1 + 0.75) * vn / 2;
+      a.vx -= jimp * ux; a.vy -= jimp * uy;
+      b.vx += jimp * ux; b.vy += jimp * uy;
+      // A knock along the pipe keeps it rolling; a knock upward or sideways-off lifts it clear.
+      for (const k of [a, b]) {
+        if (k.onPipe && (k.vy < -0.8 || Math.abs(k.vx) > 1.6)) { k.onPipe = null; k.y -= 1; }
+      }
+    }
+
+    balls = balls.filter(b => !b.dead);
+
+    if (!over && throwsLeft === 0 && !balls.some(b => b.thrown || (!b.onPipe && !b.landed))) endGame();
+  }
+
+  function throwBall() {
+    const dx = aim.x - thrower.x, dy = aim.y - (thrower.y - 40);
+    const len = Math.hypot(dx, dy) || 1;
+    const speed = 6 + power * 12;
+    const t = pick(TYPES);
+    const b = makeBall(t, thrower.x, thrower.y - 40);
+    b.vx = dx / len * speed; b.vy = dy / len * speed; b.thrown = true;
+    balls.push(b);
+    throwsLeft--;
+  }
+
+  function endGame() {
+    over = true;
+    const left = balls.filter(b => b.onPipe).length;
+    document.getElementById('endRescued').textContent = rescued;
+    document.getElementById('endStuck').textContent = stuckByYou;
+    document.getElementById('endLeft').textContent = left;
+    const net = rescued - stuckByYou;
+    let title, text;
+    if (stuckByYou === 0 && rescued >= 5) { title = 'Legendary rescue!'; text = 'You knocked down loads and got none stuck. The PE teacher is suspicious of how good you are at this.'; }
+    else if (net > 0) { title = 'Nice throwing'; text = `You rescued more than you lost. There are ${left} still up there, so the mystery isn't solved yet.`; }
+    else if (net === 0) { title = 'Break even'; text = 'You rescued exactly as many as you got stuck. The pile is the same size. This is how the pile stays forever.'; }
+    else { title = 'Well, that explains it'; text = `You got ${stuckByYou} more stuck than you rescued. Now imagine every PE lesson for 20 years. That's why there are so many balls up there.`; }
+    document.getElementById('endTitle').textContent = title;
+    document.getElementById('endText').textContent = text;
+    const s = loadStats();
+    s.games = (s.games || 0) + 1;
+    s.bestRescued = Math.max(s.bestRescued || 0, rescued);
+    s.bestNet = Math.max(s.bestNet ?? -99, net);
+    saveStats(s); showBest();
+    overlay.classList.add('show');
+  }
+
+  function loadStats() { try { return JSON.parse(localStorage.getItem('gym-pipe-balls') || '{}'); } catch { return {}; } }
+  function saveStats(s) { try { localStorage.setItem('gym-pipe-balls', JSON.stringify(s)); } catch {} }
+  function showBest() {
+    const s = loadStats();
+    document.getElementById('best').innerHTML = s.games
+      ? `Games: <b>${s.games}</b> · Most rescued in one go: <b>${s.bestRescued}</b> · Best score (rescued minus stuck): <b>${s.bestNet}</b>`
+      : 'No games yet. Go on, throw one.';
+  }
+
+  // ---------- drawing ----------
+  function drawBall(b) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.rot);
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.arc(0, 0, b.r, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = b.mark; ctx.lineWidth = 1.5;
+    if (b.type === 'football') {
+      ctx.fillStyle = b.mark;
+      for (let i = 0; i < 5; i++) { const a = i * 1.257; ctx.beginPath(); ctx.arc(Math.cos(a) * b.r * .55, Math.sin(a) * b.r * .55, b.r * .22, 0, 6.283); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(0, 0, b.r * .2, 0, 6.283); ctx.fill();
+    } else if (b.type === 'basketball') {
+      ctx.beginPath(); ctx.moveTo(-b.r, 0); ctx.lineTo(b.r, 0); ctx.moveTo(0, -b.r); ctx.lineTo(0, b.r); ctx.stroke();
+      ctx.beginPath(); ctx.arc(-b.r * 1.1, 0, b.r * .9, -1, 1); ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.r * 1.1, 0, b.r * .9, 2.14, 4.14); ctx.stroke();
+    } else if (b.type === 'tennis ball') {
+      ctx.beginPath(); ctx.arc(-b.r * .9, 0, b.r * .9, -1.1, 1.1); ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.r * .9, 0, b.r * .9, 2.04, 4.24); ctx.stroke();
+    } else {
+      ctx.fillStyle = b.mark; ctx.beginPath(); ctx.arc(-b.r * .35, -b.r * .35, b.r * .25, 0, 6.283); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, b.r - .5, 0, 6.283); ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    // Walls: painted gym wall with a darker band at the bottom.
+    ctx.fillStyle = '#d9e3cf'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#b7c7a9'; ctx.fillRect(0, 300, W, FLOOR - 300);
+    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, FLOOR); ctx.stroke(); }
+    // Wall bars on the right and a climbing rope.
+    ctx.strokeStyle = '#8a6a3e'; ctx.lineWidth = 4;
+    for (let y = 310; y < FLOOR; y += 22) { ctx.beginPath(); ctx.moveTo(720, y); ctx.lineTo(790, y); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(720, 300); ctx.lineTo(720, FLOOR); ctx.moveTo(790, 300); ctx.lineTo(790, FLOOR); ctx.stroke();
+    ctx.strokeStyle = '#c9a86a'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(700, 0); ctx.lineTo(702, 380); ctx.stroke();
+    // Floor: wooden boards with a court line.
+    ctx.fillStyle = '#d9a86b'; ctx.fillRect(0, FLOOR, W, H - FLOOR);
+    ctx.strokeStyle = 'rgba(90,50,10,.25)'; ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 48) { ctx.beginPath(); ctx.moveTo(x, FLOOR); ctx.lineTo(x, H); ctx.stroke(); }
+    ctx.strokeStyle = '#f1f1f1'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, FLOOR + 6); ctx.lineTo(W, FLOOR + 6); ctx.stroke();
+    // Pipes with brackets.
+    for (const p of PIPES) {
+      ctx.fillStyle = '#7d858c'; ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = '#a7aeb4'; ctx.fillRect(p.x, p.y + 2, p.w, 4);
+      ctx.fillStyle = '#5b6268';
+      for (let x = p.x + 20; x < p.x + p.w; x += 90) ctx.fillRect(x, 0, 6, p.y);
+    }
+    for (const b of balls) drawBall(b);
+
+    // The thrower: a kid in PE kit with an arm pointing where you aim.
+    const tx = thrower.x, ty = thrower.y;
+    ctx.fillStyle = '#3b6fd6'; ctx.fillRect(tx - 14, ty - 60, 28, 34);
+    ctx.fillStyle = '#f2c9a0'; ctx.beginPath(); ctx.arc(tx, ty - 72, 13, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#5a3a1a'; ctx.beginPath(); ctx.arc(tx, ty - 78, 13, 3.3, 6.1); ctx.fill();
+    ctx.fillStyle = '#222'; ctx.fillRect(tx - 12, ty - 26, 10, 26); ctx.fillRect(tx + 2, ty - 26, 10, 26);
+    const ang = Math.atan2(aim.y - (ty - 40), aim.x - tx);
+    ctx.strokeStyle = '#f2c9a0'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(tx, ty - 50); ctx.lineTo(tx + Math.cos(ang) * 26, ty - 50 + Math.sin(ang) * 26); ctx.stroke();
+
+    // Aim guide and power meter.
+    if (!over && throwsLeft > 0) {
+      ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(30,30,30,.35)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(tx, ty - 40); ctx.lineTo(tx + Math.cos(ang) * 90, ty - 40 + Math.sin(ang) * 90); ctx.stroke();
+      ctx.setLineDash([]);
+      if (charging) {
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(tx - 40, ty + 14, 80, 10);
+        ctx.fillStyle = power > .8 ? '#d1352b' : '#2e8b57'; ctx.fillRect(tx - 40, ty + 14, 80 * power, 10);
+      }
+    }
+
+    // Scoreboard.
+    ctx.fillStyle = '#1d2a1f'; ctx.fillRect(20, 300, 190, 62);
+    ctx.fillStyle = '#ffd94a'; ctx.font = '400 15px Bangers, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('RESCUED', 30, 322); ctx.fillText('STUCK BY YOU', 30, 340); ctx.fillText('BALLS LEFT', 30, 358);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#fff';
+    ctx.fillText(rescued, 200, 322); ctx.fillText(stuckByYou, 200, 340); ctx.fillText(throwsLeft, 200, 358);
+    ctx.textAlign = 'left';
+  }
+
+  // ---------- input ----------
+  function toCanvas(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+  }
+  stage.addEventListener('pointermove', e => { aim = toCanvas(e); });
+  stage.addEventListener('pointerdown', e => {
+    if (over || throwsLeft <= 0) return;
+    aim = toCanvas(e); charging = true; power = 0; chargeStart = performance.now();
+    stage.setPointerCapture(e.pointerId);
+  });
+  let chargeStart = 0;
+  const release = e => {
+    if (!charging) return;
+    charging = false;
+    if (e) aim = toCanvas(e);
+    throwBall();
+  };
+  stage.addEventListener('pointerup', release);
+  stage.addEventListener('pointercancel', () => { charging = false; });
+  document.getElementById('again').addEventListener('click', reset);
+
+  function loop() {
+    if (charging) power = Math.min(1, (performance.now() - chargeStart) / 1100);
+    step(); draw();
+    requestAnimationFrame(loop);
+  }
+  reset();
+  loop();
+})();
+</script>
+</body>
+</html>
